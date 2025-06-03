@@ -1,0 +1,14 @@
+# Ignore data and virtual environment directories
+data/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+*.csv
+*.joblib
+*.json
+.env
+.DS_Store
+.idea/
+.vscode/

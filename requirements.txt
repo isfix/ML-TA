@@ -1,0 +1,27 @@
+# requirements.txt
+
+# Core data handling and numerical operations
+pandas==1.5.3
+numpy==1.23.5
+scipy==1.10.0 # Often a dependency for scientific packages
+
+# Technical Analysis
+pandas-ta==0.3.14b
+
+# Machine Learning
+scikit-learn==1.2.1 # For RandomForest, StandardScaler, Pipeline, metrics etc.
+xgboost==1.7.3 # For XGBClassifier
+imbalanced-learn==0.10.1 # For SMOTE (optional, used if --use-smote and available)
+optuna==3.5.0 # For hyperparameter optimization (adjust version as needed, 3.5.0 is recent as of late 2023/early 2024)
+
+# MetaTrader 5 Integration
+MetaTrader5==5.0.45
+
+# Plotting (for backtest reports)
+matplotlib # Version will be resolved by pip
+
+# Environment variable management
+python-dotenv # For loading .env files (e.g., MT5 credentials)
+
+# Model saving (joblib is often included with scikit-learn, but can be explicit)
+# joblib # Usually comes with scikit-learn, can be listed if specific version needed
