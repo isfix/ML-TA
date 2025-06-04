@@ -1,4 +1,4 @@
-# AI-ML Trading Bot (Advanced Multi-Timeframe Strategy)
+# ML-TA (Advanced Multi-Timeframe Strategy)
 
 ## 1. Project Overview
 
@@ -74,7 +74,7 @@ The system is engineered to:
 
 (Based on Project 2's structure, with modules adapted from Project 1)
 ```
-trading_bot_root/
+ML-TA/
 ├── main.py                     # Main orchestrator script
 ├── config.py                   # All configuration variables
 ├── requirements.txt            # Python package dependencies
