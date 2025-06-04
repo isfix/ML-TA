@@ -1,4 +1,4 @@
-# ML-TA (Advanced Multi-Timeframe Strategy)
+# ML-TA
 
 ## 1. Project Overview
 
