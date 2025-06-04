@@ -371,3 +371,28 @@ class Backtester:
         for k, v in metrics.items(): self.logger.info(f"{k}: {v}")
         self.logger.info("--- End of Summary ---")
         return metrics, trade_log_df, equity_df
+
+    def _calculate_max_drawdown(self, equity_curve: pd.Series):
+        """Calculates the maximum drawdown percentage and absolute value."""
+        if equity_curve.empty:
+            return 0.0, 0.0
+
+        # Ensure equity_curve is a Series
+        if not isinstance(equity_curve, pd.Series):
+             equity_curve = pd.Series(equity_curve)
+
+        cumulative_max = equity_curve.cummax()
+        drawdown = cumulative_max - equity_curve
+        max_drawdown_absolute = drawdown.max()
+
+        # Calculate percentage drawdown relative to the peak before the drawdown
+        # Avoid division by zero if cumulative_max is 0 (e.g., starting with 0 capital, though unlikely here) or during a drawdown from 0
+        # Replace 0 cumulative_max values with a small number or handle separately if necessary, but for equity curve it should start > 0
+        cumulative_max_safe = cumulative_max.replace(0, np.nan) # Replace 0 with NaN to avoid division by zero, then fill back 0 if needed after division
+        max_drawdown_percentage = (drawdown / cumulative_max_safe * 100).max()
+
+        # Handle cases where max_drawdown_percentage might be NaN if cumulative_max_safe was all NaN or empty after replace
+        if pd.isna(max_drawdown_percentage):
+            max_drawdown_percentage = 0.0
+
+        return max_drawdown_percentage, max_drawdown_absolute
