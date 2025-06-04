@@ -7,8 +7,8 @@ ML models are tuned with Optuna and can be ensembled.
 Risk management is flexible (fixed lot or dynamic percentage).
 Backtesting simulates live data fetching from MT5.
 """
-import sys # Ensure this is at the top
-import os  # Ensure this is at the top
+import sys 
+import os  
 import argparse
 import pandas as pd
 import numpy as np
@@ -31,11 +31,10 @@ except Exception as e:
     print(f"FATAL ERROR: Unexpected error importing 'config.py': {e}")
     exit(1)
 
-# Corrected imports for the flat project structure
 from utilities import logging_utils, file_utils
 from data_ingestion.data_fetcher import DataFetcher
 from feature_engineering.market_structure import MarketStructureAnalyzer
-from feature_engineering.feature_builder import FeatureBuilder # This should now work correctly
+from feature_engineering.feature_builder import FeatureBuilder 
 from ml_models.model_manager import ModelManager
 from signal_generation.signal_processor import SignalProcessor
 from execution.mt5_interface import MT5Interface
@@ -198,52 +197,129 @@ def run_training(use_smote_arg=False):
     app_logger.info("--- Training Mode Finished ---")
 
 
+# In main.py
 def run_backtesting():
-    app_logger.info("--- Starting Backtesting Mode (Option A2: Incremental MT5 Data Simulation) ---")
+    app_logger.info("--- Starting Backtesting Mode (Pre-computed Features & Signals) ---")
     backtest_logger = logging_utils.setup_logger('BacktestProcess', config.LOG_FILE_BACKTEST, level_str=config.LOG_LEVEL)
     
     data_fetcher = DataFetcher(config, backtest_logger)
-    risk_manager = RiskManager(config, backtest_logger)
-    market_analyzer = MarketStructureAnalyzer(config, backtest_logger) 
-    
-    def model_loader(pair_key_for_model):
-        pair_cfg = config.HISTORICAL_DATA_SOURCES.get(pair_key_for_model)
-        if not pair_cfg: return None, None
-        
-        model_type_suffix = getattr(config, 'MODEL_TYPE_FOR_TRADING', 'ensemble') 
-        model_file_prefix = f"{pair_cfg['pair']}_{pair_cfg['timeframe_str']}_{model_type_suffix}"
-        
-        mm = ModelManager(config, backtest_logger) 
-        return mm.load_model_pipeline(model_file_prefix)
+    market_analyzer = MarketStructureAnalyzer(config, backtest_logger)
+    # FeatureBuilder is instantiated once to process all data for a pair
+    feature_builder_instance = FeatureBuilder(config, backtest_logger, market_analyzer)
+    risk_manager_instance = RiskManager(config, backtest_logger)
 
-    def signal_processor_creator(loaded_pipeline, loaded_feature_names):
-        return SignalProcessor(config, backtest_logger, loaded_pipeline, None, loaded_feature_names)
+    all_featured_data_for_backtest = {} # Dict: m5_pair_key -> DataFrame with ALL features
+    all_final_signals_for_backtest = {} # Dict: m5_pair_key -> Series of final signals
 
-    backtester = Backtester(
-        config=config,
-        logger=backtest_logger,
-        data_fetcher=data_fetcher,
-        market_analyzer=market_analyzer, 
-        model_loader_func=model_loader,
-        signal_processor_creator_func=signal_processor_creator,
-        risk_manager=risk_manager
+    for m5_pair_key in config.PRIMARY_MODEL_PAIRS_TIMEFRAMES:
+        backtest_logger.info(f"===== Processing data for Backtest: {m5_pair_key} =====")
+        m5_pair_config = config.HISTORICAL_DATA_SOURCES.get(m5_pair_key)
+        if not m5_pair_config: backtest_logger.error(f"No config for {m5_pair_key}. Skipping."); continue
+        
+        pair_name = m5_pair_config['pair']
+        h1_pair_key = f"{pair_name}_{config.TIMEFRAME_H1_STR}"
+        h1_pair_config = config.HISTORICAL_DATA_SOURCES.get(h1_pair_key)
+
+        # 1. Fetch all historical data for the pair
+        try:
+            start_dt = datetime.fromisoformat(config.START_DATE_HISTORICAL).replace(tzinfo=timezone.utc)
+            end_dt = datetime.fromisoformat(config.END_DATE_HISTORICAL).replace(tzinfo=timezone.utc)
+        except ValueError as e:
+            backtest_logger.error(f"Invalid date format: {e}. Skipping {m5_pair_key}."); continue
+
+        df_m5_raw = data_fetcher.fetch_historical_data(pair_name, m5_pair_config['mt5_timeframe'], start_dt, end_dt)
+        if df_m5_raw is None or df_m5_raw.empty:
+            backtest_logger.error(f"No M5 data for {pair_name}. Skipping."); continue
+        
+        df_h1_raw = None
+        if h1_pair_config:
+            df_h1_raw = data_fetcher.fetch_historical_data(pair_name, h1_pair_config['mt5_timeframe'], start_dt, end_dt)
+            if df_h1_raw is None or df_h1_raw.empty: backtest_logger.warning(f"No H1 data for {pair_name}. H1 features will be limited.")
+        
+        # 2. Build ALL features (including backtester-specific ones like M5 pivots, exit EMA)
+        # The `build_features_and_labels` method creates ML features AND backtester features, but we don't need the 'target_ml' column for backtest execution.
+        # We can call it and then drop the target, or have a separate method in FeatureBuilder.
+        # Let's assume `build_features_and_labels` returns everything, and we just use what's needed.
+        # Or better: `feature_builder_instance.build_features_for_live(df_m5_raw, df_h1_raw)` if it includes backtester cols.
+        # For now, let's assume `build_features_and_labels` is used and we ignore the target.
+        
+        # We need a method in FeatureBuilder that builds all necessary features *without* the ML target label for backtesting.
+        # Let's assume FeatureBuilder has `build_all_features_for_trading(df_m5_raw, df_h1_raw)`
+        # This method would call: _add_base_ta_indicators, _align_and_merge_h1_context, _create_final_ml_features, _add_backtester_specific_features
+        
+        try:
+            # This method should build all indicators, H1 context, ML features, M5 pivots, M5 exit EMA
+            # It should NOT do ML target labeling.
+            featured_data_for_pair = feature_builder_instance.build_all_features_for_trading_or_backtesting(df_m5_raw, df_h1_raw) # NEW METHOD NEEDED IN FeatureBuilder
+        except Exception as e:
+            backtest_logger.error(f"Error building features for {pair_name} backtest: {e}", exc_info=True); continue
+            
+        if featured_data_for_pair.empty:
+            backtest_logger.error(f"Feature generation resulted in empty DataFrame for {pair_name}. Skipping."); continue
+        
+        all_featured_data_for_backtest[m5_pair_key] = featured_data_for_pair
+
+        # 3. Load ML Model and Generate All Signals
+        model_file_prefix = f"{pair_name}_{m5_pair_config['timeframe_str']}_{config.MODEL_TYPE_FOR_TRADING}"
+        model_manager = ModelManager(config, backtest_logger, model_name_prefix=model_file_prefix)
+        pipeline, feature_names = model_manager.load_model_pipeline(model_file_prefix) # Using new method name
+
+        if not pipeline or not feature_names:
+            backtest_logger.error(f"Failed to load model/pipeline for {pair_name}. Skipping."); continue
+        
+        # Ensure all required ML features are present in featured_data_for_pair
+        ml_features_for_pred_df = featured_data_for_pair[feature_names] # Select only ML features in correct order
+
+        # Get probabilities for all candles
+        # predict_proba returns shape (n_samples, n_classes)
+        # We need to process these probabilities with SignalProcessor's logic
+        # This is slightly different from P1's SignalProcessor which took one candle.
+        # We need a batch version or iterate.
+        # For simplicity, let's assume SignalProcessor can be adapted or we iterate.
+
+        signal_processor = SignalProcessor(config, backtest_logger, pipeline, None, feature_names)
+        
+        # Iterate through the featured_data_for_pair to generate signals row by row
+        # This is less efficient than batch but matches SignalProcessor's current design
+        signals_list = []
+        for timestamp, row_features in ml_features_for_pred_df.iterrows(): # Iterate over ML features part
+            # SignalProcessor needs the full feature row (including non-ML features for rules)
+            full_feature_row_for_signal = featured_data_for_pair.loc[timestamp]
+            
+            candidate_dir = signal_processor.check_candidate_entry_conditions(full_feature_row_for_signal)
+            final_signal_val = 0
+            if candidate_dir:
+                ml_confirmed = signal_processor.generate_ml_confirmed_signal(full_feature_row_for_signal, candidate_dir)
+                if ml_confirmed:
+                    final_signal_val = 1 if ml_confirmed['signal'] == 'BUY' else -1
+            signals_list.append(final_signal_val)
+        
+        all_final_signals_for_backtest[m5_pair_key] = pd.Series(signals_list, index=ml_features_for_pred_df.index)
+        backtest_logger.info(f"Generated {len(signals_list)} signals for {pair_name}. Non-zero: {(all_final_signals_for_backtest[m5_pair_key] != 0).sum()}")
+
+    data_fetcher.shutdown_mt5() # Close MT5 if it was used
+
+    if not all_featured_data_for_backtest or not all_final_signals_for_backtest:
+        backtest_logger.error("No featured data or signals prepared for any pair. Aborting backtest."); return
+
+    # 4. Run Backtester
+    backtester_engine = Backtester(
+        config_obj=config,
+        logger_obj=backtest_logger,
+        initial_capital=config.BACKTEST_INITIAL_CAPITAL,
+        all_featured_data=all_featured_data_for_backtest,
+        all_final_signals=all_final_signals_for_backtest,
+        risk_manager_instance=risk_manager_instance
     )
-
-    backtest_logger.info("Running backtest simulation...")
+    
+    backtest_logger.info("Running backtest simulation with pre-computed features/signals...")
     try:
-        performance_metrics, trade_log_df, equity_curve_df = backtester.run_backtest()
-        if performance_metrics:
-            backtest_logger.info("Backtest finished. Performance metrics generated.")
-        else:
-            backtest_logger.warning("Backtest completed, but no performance metrics were generated (likely no trades).")
+        performance_metrics, trade_log_df, equity_curve_df = backtester_engine.run_backtest()
+        # Reporting is handled by backtester.generate_report()
     except Exception as e:
         backtest_logger.error(f"Critical error during backtest execution: {e}", exc_info=True)
-    finally:
-        if config.BACKTEST_DATA_SOURCE_MT5 or config.DATA_SOURCE == "mt5":
-             data_fetcher.shutdown_mt5()
 
     app_logger.info("--- Backtesting Mode Finished ---")
-
 
 def run_live_trading():
     app_logger.info("--- Starting Live Trading Mode ---")

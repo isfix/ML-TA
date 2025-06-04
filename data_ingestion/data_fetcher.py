@@ -11,13 +11,13 @@ import os
 
 try:
     import config
-    from utilities import logging_utils # Corrected: Direct import for flat structure
+    from utilities import logging_utils 
 except ImportError:
     print("Warning: Could not perform standard config/utilities import in DataFetcher. Ensure paths are correct.")
     import logging
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
-    class MockConfig:
+    class MockConfig: # Basic mock for fallback
         LOG_FILE_APP = "data_fetcher_temp.log"; DATA_SOURCE = "file"; MT5_PATH = ""; MT5_LOGIN = "testlogin"
         MT5_PASSWORD = "testpassword"; MT5_SERVER = "testserver"; DATA_DIR = "./temp_data/" 
         TIMEFRAME_M5_STR = "M5"; TIMEFRAME_H1_STR = "H1"; TIMEFRAME_M5_MT5 = mt5.TIMEFRAME_M5; TIMEFRAME_H1_MT5 = mt5.TIMEFRAME_H1
@@ -36,7 +36,7 @@ class DataFetcher:
         self.logger = logger_obj
         self.mt5_initialized_by_class = False 
 
-        if self.config.DATA_SOURCE == "mt5":
+        if self.config.DATA_SOURCE == "mt5": # Or any mode that might use MT5 directly
             self._initialize_mt5()
 
     def _initialize_mt5(self):
@@ -57,41 +57,69 @@ class DataFetcher:
         if self.mt5_initialized_by_class and mt5.terminal_info() is not None:
             self.logger.info("Shutting down MetaTrader 5 connection initiated by this DataFetcher instance.")
             mt5.shutdown(); self.mt5_initialized_by_class = False
-        elif self.config.DATA_SOURCE == "mt5": 
-            self.logger.debug("MT5 connection not initiated by this instance or already shut down.")
+        # Removed 'elif self.config.DATA_SOURCE == "mt5":' as the flag mt5_initialized_by_class is more direct.
 
     def _validate_and_format_df(self, df: pd.DataFrame, symbol_for_log: str, source_for_log: str) -> pd.DataFrame | None:
         if df is None or df.empty:
             self.logger.warning(f"No data returned from {source_for_log} for {symbol_for_log}."); return pd.DataFrame() 
+        
         df_processed = df.copy()
         timestamp_col_name = self.config.TIMESTAMP_COL
+        
         if 'time' in df_processed.columns: 
-            df_processed[timestamp_col_name] = pd.to_datetime(df_processed['time'], unit='s', utc=True)
+            df_processed[timestamp_col_name] = pd.to_datetime(df_processed['time'], unit='s', errors='coerce', utc=True)
+            if df_processed[timestamp_col_name].isnull().all():
+                self.logger.error(f"All values in 'time' column failed to parse as datetime for {symbol_for_log}."); return None
             df_processed.set_index(timestamp_col_name, inplace=True)
             if 'time' != timestamp_col_name: df_processed.drop(columns=['time'], inplace=True, errors='ignore')
         elif timestamp_col_name in df_processed.columns:
             try:
-                df_processed[timestamp_col_name] = pd.to_datetime(df_processed[timestamp_col_name], utc=True)
+                parsed_dates = pd.to_datetime(df_processed[timestamp_col_name], errors='coerce', utc=True)
+                if parsed_dates.isnull().all():
+                    self.logger.error(f"All values in column '{timestamp_col_name}' failed to parse as datetime for {symbol_for_log} from {source_for_log}.")
+                    return None
+                df_processed[timestamp_col_name] = parsed_dates
                 df_processed.set_index(timestamp_col_name, inplace=True)
             except Exception as e:
-                self.logger.error(f"Failed to parse column '{timestamp_col_name}' as datetime for {symbol_for_log} from {source_for_log}: {e}"); return None
+                self.logger.error(f"Error processing column '{timestamp_col_name}' as datetime index for {symbol_for_log} from {source_for_log}: {e}", exc_info=True)
+                return None
         elif pd.api.types.is_datetime64_any_dtype(df_processed.index):
             if df_processed.index.tz is None: df_processed.index = df_processed.index.tz_localize('UTC')
             elif df_processed.index.tz != timezone.utc: df_processed.index = df_processed.index.tz_convert('UTC')
         else:
             self.logger.error(f"DataFrame from {source_for_log} for {symbol_for_log} has no 'time' column, no '{timestamp_col_name}' column, and index is not datetime."); return None
+
+        # Drop rows where the index (timestamp) became NaT after coercion
+        if df_processed.index.hasnans:
+            rows_before_dropna = len(df_processed)
+            df_processed.dropna(axis=0, subset=[df_processed.index.name], inplace=True)
+            self.logger.warning(f"Dropped {rows_before_dropna - len(df_processed)} rows with NaT timestamps for {symbol_for_log}.")
+        if df_processed.empty:
+            self.logger.error(f"DataFrame became empty after dropping NaT timestamps for {symbol_for_log}."); return None
+
         rename_map = {'open': self.config.OPEN_COL, 'high': self.config.HIGH_COL, 'low': self.config.LOW_COL, 'close': self.config.CLOSE_COL, 'tick_volume': self.config.VOLUME_COL, 'volume': self.config.VOLUME_COL, 'real_volume': f"{self.config.VOLUME_COL}_real"}
         actual_rename_map = {k: v for k, v in rename_map.items() if k in df_processed.columns and k !=v}
         df_processed.rename(columns=actual_rename_map, inplace=True)
+        
         required_cols = [self.config.OPEN_COL, self.config.HIGH_COL, self.config.LOW_COL, self.config.CLOSE_COL, self.config.VOLUME_COL]
         missing_cols = [col for col in required_cols if col not in df_processed.columns]
         if missing_cols:
-            self.logger.error(f"DataFrame from {source_for_log} for {symbol_for_log} is missing required columns after rename: {missing_cols}. Available: {df_processed.columns.tolist()}"); return None
+            self.logger.error(f"DataFrame for {symbol_for_log} is missing required columns after rename: {missing_cols}. Available: {df_processed.columns.tolist()}"); return None
+        
         for col in required_cols:
-            try: df_processed[col] = pd.to_numeric(df_processed[col])
-            except ValueError as e:
-                self.logger.error(f"Could not convert column '{col}' to numeric for {symbol_for_log}: {e}. Dropping NaNs."); df_processed.dropna(subset=[col], inplace=True) 
-                if df_processed.empty: return None 
+            try: 
+                df_processed[col] = pd.to_numeric(df_processed[col], errors='coerce') # Coerce errors to NaN for numeric conversion
+            except Exception as e: # Broad exception though to_numeric with coerce should handle most
+                self.logger.error(f"Unexpected error converting column '{col}' to numeric for {symbol_for_log}: {e}", exc_info=True)
+                df_processed[col] = np.nan # Fill with NaN on unexpected error
+        
+        # Check for NaNs introduced by to_numeric coercion in critical columns
+        if df_processed[required_cols].isnull().values.any():
+            self.logger.warning(f"NaNs found in OHLCV columns for {symbol_for_log} after numeric conversion. Dropping rows with NaNs in these columns.")
+            df_processed.dropna(subset=required_cols, inplace=True)
+            if df_processed.empty:
+                self.logger.error(f"DataFrame became empty after dropping rows with NaNs in OHLCV columns for {symbol_for_log}."); return None
+
         self.logger.info(f"Fetched and formatted {len(df_processed)} records for {symbol_for_log} from {source_for_log}.")
         return df_processed[required_cols]
 
@@ -121,9 +149,17 @@ class DataFetcher:
                 df_from_file = pd.read_csv(filepath)
                 df_processed = self._validate_and_format_df(df_from_file, symbol, f"File ({file_to_load})")
                 if df_processed is None or df_processed.empty: self.logger.error(f"Data validation failed for {filepath}"); return None
-                if df_processed.index.tz is None: df_processed.index = df_processed.index.tz_localize('UTC')
-                elif df_processed.index.tz != timezone.utc: df_processed.index = df_processed.index.tz_convert('UTC')
+                
+                # Ensure index is UTC for comparison, _validate_and_format_df should handle this.
+                # Just in case, re-verify.
+                if df_processed.index.tz is None:
+                    df_processed.index = df_processed.index.tz_localize('UTC')
+                elif df_processed.index.tz != timezone.utc:
+                    df_processed.index = df_processed.index.tz_convert('UTC')
+                
                 df_filtered = df_processed[(df_processed.index >= start_date_dt) & (df_processed.index <= end_date_dt)]
+                if df_filtered.empty:
+                     self.logger.warning(f"No data remained for {symbol} after date filtering ({start_date_dt} to {end_date_dt}).")
                 return df_filtered
             except Exception as e: self.logger.error(f"Error loading/processing {filepath}: {e}", exc_info=True); return None
         else: self.logger.error(f"Unsupported DATA_SOURCE: {self.config.DATA_SOURCE}"); return None

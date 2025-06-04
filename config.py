@@ -59,8 +59,8 @@ MT5_MAGIC_NUMBER = 123456 # Unique magic number for this bot's trades
 # --- Data Ingestion & Source Configuration ---
 # DATA_SOURCE: "mt5" or "file" (Project 1 Style)
 DATA_SOURCE = "file" # For training/backtesting. Live will always use "mt5".
-START_DATE_HISTORICAL = "2020-01-01" # For fetching historical data
-END_DATE_HISTORICAL = "2023-12-31"   # For fetching historical data
+START_DATE_HISTORICAL = "2022-10-01"  # Start date for historical data ingestion
+END_DATE_HISTORICAL = "2025-05-10"  
 
 # HISTORICAL_DATA_SOURCES: Dictionary mapping keys to data details (Project 2 Style, enhanced for P1 needs)
 # This will be the primary way to define data for pairs.
