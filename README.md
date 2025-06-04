@@ -86,7 +86,7 @@ ML-TA/
 ```
 
 ## Usage
-1. Install Python 3.8+ (recommended using Python 3.11)and MetaTrader 5 terminal
+1. Install Python 3.8+ (recommended using Python 3.11) and MetaTrader 5 terminal
 2. Clone this repo and set up a virtual environment
 3. Install dependencies: `pip install -r requirements.txt`
 4. Configure `config.py` and `.env` for your MT5 credentials and data sources
