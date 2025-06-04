@@ -179,7 +179,7 @@ ENSEMBLE_METHOD = 'VotingClassifier' # Currently only VotingClassifier supported
 # USE_SMOTE_DEFAULT = False # Default for training if not specified by CLI
 
 # --- Risk Management Parameters (Flexible - New) ---
-RISK_MANAGEMENT_MODE = "DYNAMIC_PERCENTAGE"  # "FIXED_LOT" or "DYNAMIC_PERCENTAGE"
+RISK_MANAGEMENT_MODE = "FIXED_LOT" # "FIXED_LOT" or "DYNAMIC_PERCENTAGE"
 FIXED_LOT_SIZE = 0.01  # Used if RISK_MANAGEMENT_MODE is "FIXED_LOT", or as fallback if dynamic fails AND this is > 0
 
 RISK_PER_TRADE_PERCENT = 1.0  # For DYNAMIC_PERCENTAGE: 1.0 means 1% of account balance

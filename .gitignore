@@ -1,6 +1,6 @@
 # Ignore data and virtual environment directories
-data/
-venv/
+/data/
+/venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -12,4 +12,10 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
-reports/
+# Only ignore trade logs inside reports/backtests
+reports/backtests/trade_log.csv
+# Do not ignore the rest of reports/
+# !reports/
+# !reports/backtests/
+# !reports/backtests/equity_curve.png
+# !reports/backtests/performance_report.txt
