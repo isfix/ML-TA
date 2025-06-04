@@ -1,4 +1,4 @@
-# ML-TA: AI-Powered Trading Bot for MetaTrader 5
+# ML-TA
 
 ## Project Overview
 
