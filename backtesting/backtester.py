@@ -88,7 +88,7 @@ class Backtester:
         
         price_diff_pips = ((exit_price - entry_price_adj) / pip_size) if trade_type == 'BUY' else ((entry_price_adj - exit_price) / pip_size)
         
-        # Mocking point_value_per_lot for this example, should come from config
+        # Mocking point_value_per_pip_per_lot for this example, should come from config
         point_value_per_pip_per_lot = 10.0 # Example for EURUSD on a standard account (1 lot = $10 per pip)
         if pair_cfg and 'backtest_mt5_trade_tick_value' in pair_cfg and 'backtest_mt5_point' in pair_cfg and pair_cfg['backtest_mt5_point'] > 0:
             # Value of 1 pip for 1 lot = (pip_size / point_size) * tick_value_for_1_lot
@@ -139,21 +139,20 @@ class Backtester:
 
 
     def run_backtest(self):
+        import logging # Import logging here
         self.logger.info("Starting backtest run (Pre-computed Features & Signals Mode)...")
         
         # Create a unified timeline from all M5 data indices
-        all_timestamps_list = []
+        # Use union to combine DatetimeIndex objects
+        unified_timestamps = pd.DatetimeIndex([])
         for m5_pair_key in self.backtest_pairs_keys:
             if m5_pair_key in self.all_featured_data:
-                all_timestamps_list.append(self.all_featured_data[m5_pair_key].index)
-        
-        if not all_timestamps_list:
-            self.logger.error("No featured data available for any pair. Aborting backtest."); return None,None,None
-            
-        unified_timestamps = pd.concat(all_timestamps_list).unique().sort_values()
-        if unified_timestamps.empty:
-            self.logger.error("Unified timestamp index is empty. Aborting backtest."); return None,None,None
+                unified_timestamps = unified_timestamps.union(self.all_featured_data[m5_pair_key].index)
 
+        if unified_timestamps.empty:
+            self.logger.error("No featured data available for any pair or unified timestamp index is empty. Aborting backtest."); return None,None,None
+
+        unified_timestamps = unified_timestamps.sort_values()
         self.equity_curve_data.append((unified_timestamps[0] - pd.Timedelta(minutes=5), self.initial_capital)) # Equity before first bar
 
         for current_timestamp in unified_timestamps:

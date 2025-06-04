@@ -155,7 +155,7 @@ ML_SELL_CONFIRM_THRESHOLD = 0.60 # Min probability from ML model to confirm a ru
 # --- Machine Learning Model Configuration ---
 # ML_MODEL_TYPES: list of models to train e.g. ['RandomForestClassifier', 'XGBClassifier'] (Project 1 Style)
 ML_MODEL_TYPES = ['XGBClassifier'] # Focus on one for now, can be expanded
-MODEL_TYPE_FOR_TRADING = 'XGBClassifier_ensemble' # Or 'XGBClassifier_tuned' or specific name after Optuna/Ensemble
+MODEL_TYPE_FOR_TRADING = 'XGBClassifier_tuned' # Options 'XGBClassifier_ensemble' or 'XGBClassifier_tuned'
 
 # Target variable definition for ML (Project 1 Style)
 TARGET_COLUMN_NAME = 'target_ml' # Name of the target column in features_df
