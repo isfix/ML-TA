@@ -86,7 +86,7 @@ ML-TA/
 ```
 
 ## Usage
-1. Install Python 3.8+ and MetaTrader 5 terminal
+1. Install Python 3.8+ (recommended using Python 3.11)and MetaTrader 5 terminal
 2. Clone this repo and set up a virtual environment
 3. Install dependencies: `pip install -r requirements.txt`
 4. Configure `config.py` and `.env` for your MT5 credentials and data sources
@@ -102,6 +102,10 @@ ML-TA/
 - **Live:**
   - `python main.py --mode live`
   - Connects to MT5, loads models, and executes trades in real time based on live data and ML-confirmed signals. (Demo account recommended for testing.)
+
+### Utility Options
+- `--clear-logs`: Clears all log files in `reports/logs/`.
+- `--clear-reports`: Clears all backtest reports in `reports/backtests/`.
 
 ## Disclaimer
 This software is for research and educational purposes only. Trading financial markets involves substantial risk. Use at your own discretion.
