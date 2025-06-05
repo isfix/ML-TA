@@ -9,18 +9,30 @@ import logging
 import MetaTrader5 as mt5 # For MT5 timeframe constants
 from dotenv import load_dotenv
 
-# Load environment variables from .env file (if any, for API keys etc.)
-# Create a .env file in the root directory for sensitive data like MT5 credentials
-# Example .env content:
-# MT5_LOGIN_REAL= your_real_login (Without "")
-# MT5_PASSWORD_REAL= "your_real_password"
-# MT5_SERVER_REAL= "YourBroker-LiveServer"
-# MT5_LOGIN_DEMO= your_demo_login (Without "")
-# MT5_PASSWORD_DEMO= "your_demo_password"
-# MT5_SERVER_DEMO= "YourBroker-DemoServer"
-# MT5_TERMINAL_PATH= "C:\\Program Files\\MetaTrader 5\\terminal64.exe"
-
+# Load environment variables from .env file
 load_dotenv()
+
+# --- MT5 Credentials (set here directly, not from .env) ---
+USE_DEMO_ACCOUNT = True  # Set to True for demo, False for real
+
+# Demo credentials from .env
+MT5_LOGIN_DEMO = int(os.getenv('MT5_LOGIN_DEMO', 0))
+MT5_PASSWORD_DEMO = os.getenv('MT5_PASSWORD_DEMO', '')
+MT5_SERVER_DEMO = os.getenv('MT5_SERVER_DEMO', '')
+
+# Real credentials from .env
+MT5_LOGIN_REAL = int(os.getenv('MT5_LOGIN_REAL', 0))
+MT5_PASSWORD_REAL = os.getenv('MT5_PASSWORD_REAL', '')
+MT5_SERVER_REAL = os.getenv('MT5_SERVER_REAL', '')
+
+# MT5 Terminal Path from .env
+MT5_TERMINAL_PATH = os.getenv('MT5_TERMINAL_PATH', r'C:\Program Files\MetaTrader 5\terminal64.exe')
+
+MT5_LOGIN = MT5_LOGIN_DEMO if USE_DEMO_ACCOUNT else MT5_LOGIN_REAL
+MT5_PASSWORD = MT5_PASSWORD_DEMO if USE_DEMO_ACCOUNT else MT5_PASSWORD_REAL
+MT5_SERVER = MT5_SERVER_DEMO if USE_DEMO_ACCOUNT else MT5_SERVER_REAL
+MT5_PATH = MT5_TERMINAL_PATH
+MT5_MAGIC_NUMBER = 123456 # Unique magic number for this bot's trades
 
 # --- General Paths (Project 2 Style) ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # Assumes config.py is in the project root
@@ -46,20 +58,10 @@ LOG_FILE_BACKTEST = os.path.join(LOG_DIR, "trading_bot_backtest.log")
 LOG_FILE_LIVE = os.path.join(LOG_DIR, "trading_bot_live.log")
 # Note: Project 1 had LOG_FILE_NAME = "trading_bot.log". Project 2 has specific files. We'll use P2 style.
 
-# --- MT5 Connection Parameters (Project 1 Style) ---
-# Set USE_DEMO_ACCOUNT to True to use demo credentials, False for real
-USE_DEMO_ACCOUNT = True # IMPORTANT: SET TO FALSE FOR REAL TRADING AFTER TESTING
-
-MT5_LOGIN = os.getenv("MT5_LOGIN_DEMO" if USE_DEMO_ACCOUNT else "MT5_LOGIN_REAL", "your_default_login")
-MT5_PASSWORD = os.getenv("MT5_PASSWORD_DEMO" if USE_DEMO_ACCOUNT else "MT5_PASSWORD_REAL", "your_default_password")
-MT5_SERVER = os.getenv("MT5_SERVER_DEMO" if USE_DEMO_ACCOUNT else "MT5_SERVER_REAL", "YourBroker-DefaultServer")
-MT5_PATH = os.getenv("MT5_TERMINAL_PATH", "") # e.g., "C:\\Program Files\\MetaTrader 5\\terminal64.exe"
-MT5_MAGIC_NUMBER = 123456 # Unique magic number for this bot's trades
-
 # --- Data Ingestion & Source Configuration ---
 # DATA_SOURCE: "mt5" or "file" (Project 1 Style)
 DATA_SOURCE = "file" # For training/backtesting. Live will always use "mt5".
-START_DATE_HISTORICAL = "2022-10-01"  # Start date for historical data ingestion
+START_DATE_HISTORICAL = "2016-01-01"  # Start date for historical data ingestion
 END_DATE_HISTORICAL = "2025-05-10"  
 
 # HISTORICAL_DATA_SOURCES: Dictionary mapping keys to data details (Project 2 Style, enhanced for P1 needs)
