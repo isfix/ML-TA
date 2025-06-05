@@ -14,6 +14,8 @@ __pycache__/
 .vscode/
 # Only ignore trade logs inside reports/backtests
 reports/backtests/trade_log.csv
+reports/backtests/equity_curve.png
+reports/backtests/performance_report.txt
 # Do not ignore the rest of reports/
 # !reports/
 # !reports/backtests/
