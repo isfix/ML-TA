@@ -251,7 +251,7 @@ def run_backtesting():
         try:
             # This method should build all indicators, H1 context, ML features, M5 pivots, M5 exit EMA
             # It should NOT do ML target labeling.
-            featured_data_for_pair = feature_builder_instance.build_all_features_for_trading_or_backtesting(df_m5_raw, df_h1_raw) # NEW METHOD NEEDED IN FeatureBuilder
+            featured_data_for_pair = feature_builder_instance.build_features_for_live(df_m5_raw, df_h1_raw) # NEW METHOD NEEDED IN FeatureBuilder
         except Exception as e:
             backtest_logger.error(f"Error building features for {pair_name} backtest: {e}", exc_info=True); continue
             
