@@ -16,6 +16,7 @@ import time
 import shutil
 import logging 
 from datetime import datetime, timezone, timedelta
+import MetaTrader5 as mt5
 
 # Ensure the project root directory is in sys.path
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
