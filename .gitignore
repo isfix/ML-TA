@@ -12,8 +12,4 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
-# Only ignore trade logs inside reports/backtests
 reports/backtests/trade_log.csv
-# Do not ignore equity curve and performance report so they are tracked by git
-# !reports/backtests/equity_curve.png
-# !reports/backtests/performance_report.txt
