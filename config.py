@@ -12,13 +12,13 @@ from dotenv import load_dotenv
 # Load environment variables from .env file (if any, for API keys etc.)
 # Create a .env file in the root directory for sensitive data like MT5 credentials
 # Example .env content:
-# MT5_LOGIN_REAL="your_real_login"
-# MT5_PASSWORD_REAL="your_real_password"
-# MT5_SERVER_REAL="YourBroker-LiveServer"
-# MT5_LOGIN_DEMO="your_demo_login"
-# MT5_PASSWORD_DEMO="your_demo_password"
-# MT5_SERVER_DEMO="YourBroker-DemoServer"
-# MT5_TERMINAL_PATH="C:\\Program Files\\MetaTrader 5\\terminal64.exe"
+# MT5_LOGIN_REAL= your_real_login (Without "")
+# MT5_PASSWORD_REAL= "your_real_password"
+# MT5_SERVER_REAL= "YourBroker-LiveServer"
+# MT5_LOGIN_DEMO= your_demo_login (Without "")
+# MT5_PASSWORD_DEMO= "your_demo_password"
+# MT5_SERVER_DEMO= "YourBroker-DemoServer"
+# MT5_TERMINAL_PATH= "C:\\Program Files\\MetaTrader 5\\terminal64.exe"
 
 load_dotenv()
 
