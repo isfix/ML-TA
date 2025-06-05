@@ -112,4 +112,6 @@ ML-TA/
 - `--clear-reports`: Clears all backtest reports in `reports/backtests/`.
 
 ## Disclaimer
-This software is for research and educational purposes only. Trading financial markets involves substantial risk. Use at your own discretion.
+This software and its content are provided for research and educational purposes only. It is not intended as and does not constitute financial advice, investment advice, trading advice, or any other form of advice. You should not treat any of the project's content as such.
+
+Trading financial markets, especially with automated and machine-learning-based systems, carries a high level of risk and may not be suitable for all investors. Before deciding to trade, you should carefully consider your investment objectives, level of experience, and risk appetite. There is a possibility that you could sustain a loss of some or all of your initial investment. Therefore, you should not invest money that you cannot afford to lose.
