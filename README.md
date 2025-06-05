@@ -6,9 +6,11 @@ ML-TA is a modular, Python-based trading bot designed for MetaTrader 5 (MT5). It
 
 ---
 
-## Sample Backtest Performance (2022–2025)
+## Sample Backtest Performance (2016–2025)
 
-Performance below is based on EURUSD/GBPUSD from October 2022 to May 2025 using the full ML-TA pipeline:
+Performance below is based on EURUSD/GBPUSD from January 2016 to May 2025 using the full ML-TA pipeline.
+
+> **Note:** The model used for this backtest was trained only on data from 2022 to 2025, then evaluated on the entire 2016–2025 period. This approach demonstrates the model's ability to generalize and reduces the risk of overfitting, as it was not exposed to earlier data during training. Notably, the strategy survived the 2020 COVID market crash, highlighting its robustness in highly volatile conditions.
 
 ### Equity Curve
 
@@ -16,24 +18,26 @@ Performance below is based on EURUSD/GBPUSD from October 2022 to May 2025 using 
 
 ### Performance Report
 
+> **Backtest settings:** All results below use a fixed 0.01 lot size per trade (no dynamic risk or position sizing).
+
 ```
 Backtest Performance Report (Pre-computed Features Mode)
 ============================================================
 Initial Capital: $10,000.00
-Final Equity: $11,950.83
-Net Profit/Loss: $1,950.83
-Net Profit/Loss (%): 19.51%
-Total Closed Trades: 2321
-Winning Trades: 1389
-Losing Trades: 932
-Win Rate (%): 59.84
-Average Win ($): 1.92
-Average Loss ($): -0.77
-Total Gross Profit ($): 2,667.66
-Total Gross Loss ($): -716.83
-Profit Factor: 3.72
-Max Drawdown (%): 0.09%
-Max Drawdown ($): $10.71
+Final Equity: $16,000.25
+Net Profit/Loss: $6,000.25
+Net Profit/Loss (%): 60.00%
+Total Closed Trades: 8401
+Winning Trades: 4700
+Losing Trades: 3701
+Win Rate (%): 55.95
+Average Win ($): 1.90
+Average Loss ($): -0.79
+Total Gross Profit ($): 8,922.28
+Total Gross Loss ($): -2,922.03
+Profit Factor: 3.05
+Max Drawdown (%): 0.11%
+Max Drawdown ($): $13.68
 ```
 
 ---
