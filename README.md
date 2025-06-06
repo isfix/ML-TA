@@ -8,7 +8,7 @@ ML-TA is a modular, Python-based trading bot designed for MetaTrader 5 (MT5). It
 
 ## Sample Backtest Performance (2016–2025)
 
-Performance below is based on EURUSD/GBPUSD from January 2016 to May 2025 using the full ML-TA pipeline.
+Performance below is based on EURUSD, GBPUSD, AUDUSD, GBPJPY, and USDJPY from January 2016 to May 2025 using the full ML-TA pipeline.
 
 > **Note:** The model used for this backtest was trained only on data from 2022 to 2025, then evaluated on the entire 2016–2025 period. This approach demonstrates the model's ability to generalize and reduces the risk of overfitting, as it was not exposed to earlier data during training. Notably, the strategy survived the 2020 COVID market crash, highlighting its robustness in highly volatile conditions.
 
