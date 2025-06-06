@@ -24,20 +24,20 @@ Performance below is based on EURUSD/GBPUSD from January 2016 to May 2025 using 
 Backtest Performance Report (Pre-computed Features Mode)
 ============================================================
 Initial Capital: $10,000.00
-Final Equity: $16,000.25
-Net Profit/Loss: $6,000.25
-Net Profit/Loss (%): 60.00%
-Total Closed Trades: 8401
-Winning Trades: 4700
-Losing Trades: 3701
-Win Rate (%): 55.95
-Average Win ($): 1.90
-Average Loss ($): -0.79
-Total Gross Profit ($): 8,922.28
-Total Gross Loss ($): -2,922.03
-Profit Factor: 3.05
-Max Drawdown (%): 0.11%
-Max Drawdown ($): $13.68
+Final Equity: $20,968.56
+Net Profit/Loss: $10,968.56
+Net Profit/Loss (%): 109.69%
+Total Closed Trades: 22642
+Winning Trades: 11598
+Losing Trades: 11044
+Win Rate (%): 51.22
+Average Win ($): 1.80
+Average Loss ($): -0.90
+Total Gross Profit ($): 20,925.92
+Total Gross Loss ($): -9,957.36
+Profit Factor: 2.10
+Max Drawdown (%): 0.18%
+Max Drawdown ($): $25.82
 ```
 
 ---

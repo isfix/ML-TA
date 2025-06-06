@@ -1,17 +1,17 @@
 Backtest Performance Report (Pre-computed Features Mode)
 ============================================================
 Initial Capital: $10,000.00
-Final Equity: $11,950.83
-Net Profit/Loss: $1,950.83
-Net Profit/Loss (%): 19.51%
-Total Closed Trades: 2321
-Winning Trades: 1389
-Losing Trades: 932
-Win Rate (%): 59.84
-Average Win ($): 1.92
-Average Loss ($): -0.77
-Total Gross Profit ($): 2,667.66
-Total Gross Loss ($): -716.83
-Profit Factor: 3.72
-Max Drawdown (%): 0.09%
-Max Drawdown ($): $10.71
+Final Equity: $20,968.56
+Net Profit/Loss: $10,968.56
+Net Profit/Loss (%): 109.69%
+Total Closed Trades: 22642
+Winning Trades: 11598
+Losing Trades: 11044
+Win Rate (%): 51.22
+Average Win ($): 1.80
+Average Loss ($): -0.90
+Total Gross Profit ($): 20,925.92
+Total Gross Loss ($): -9,957.36
+Profit Factor: 2.10
+Max Drawdown (%): 0.18%
+Max Drawdown ($): $25.82
