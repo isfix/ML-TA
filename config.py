@@ -8,8 +8,6 @@ import os
 import logging
 import MetaTrader5 as mt5 # For MT5 timeframe constants
 from dotenv import load_dotenv
-import glob
-import re
 
 # Load environment variables from .env file
 load_dotenv()
@@ -66,46 +64,59 @@ DATA_SOURCE = "file" # For training/backtesting. Live will always use "mt5".
 START_DATE_HISTORICAL = "2016-01-01"  # Start date for historical data ingestion
 END_DATE_HISTORICAL = "2025-05-10"  
 
-HISTORICAL_DATA_SOURCES = {}
+# HISTORICAL_DATA_SOURCES: Dictionary mapping keys to data details (Project 2 Style, enhanced for P1 needs)
+# This will be the primary way to define data for pairs.
+# Add backtest_mt5_* parameters for dynamic risk calculation during backtesting.
+HISTORICAL_DATA_SOURCES = {
+    "EURUSD_M5": {
+        "pair": "EURUSD", "timeframe_str": "M5", "filename": "EURUSD_M5.csv",
+        "mt5_timeframe": mt5.TIMEFRAME_M5, "pip_size": 0.0001,
+        "backtest_mt5_point": 0.00001, "backtest_mt5_trade_tick_value": 1.0, # Assuming 1 USD per point for 1 lot
+        "backtest_mt5_volume_min": 0.01, "backtest_mt5_volume_max": 100.0,
+        "backtest_mt5_volume_step": 0.01, "backtest_account_currency": "USD"
+    },
+    "EURUSD_H1": {
+        "pair": "EURUSD", "timeframe_str": "H1", "filename": "EURUSD_H1.csv",
+        "mt5_timeframe": mt5.TIMEFRAME_H1, "pip_size": 0.0001
+        # H1 doesn't need all backtest_mt5_* params if only used for context
+    },
+    "GBPUSD_M5": {
+        "pair": "GBPUSD", "timeframe_str": "M5", "filename": "GBPUSD_M5.csv",
+        "mt5_timeframe": mt5.TIMEFRAME_M5, "pip_size": 0.0001,
+        "backtest_mt5_point": 0.00001, "backtest_mt5_trade_tick_value": 1.0,
+        "backtest_mt5_volume_min": 0.01, "backtest_mt5_volume_max": 100.0,
+        "backtest_mt5_volume_step": 0.01, "backtest_account_currency": "USD"
+    },
+    "GBPUSD_H1": {
+        "pair": "GBPUSD", "timeframe_str": "H1", "filename": "GBPUSD_H1.csv",
+        "mt5_timeframe": mt5.TIMEFRAME_H1, "pip_size": 0.0001
+    },
+    "AUDUSD_M5": {
+        "pair": "AUDUSD", "timeframe_str": "M5", "filename": "AUDUSD_M5.csv",
+        "mt5_timeframe": mt5.TIMEFRAME_M5, "pip_size": 0.0001,
+        "backtest_mt5_point": 0.00001, "backtest_mt5_trade_tick_value": 1.0,
+        "backtest_mt5_volume_min": 0.01, "backtest_mt5_volume_max": 100.0,
+        "backtest_mt5_volume_step": 0.01, "backtest_account_currency": "USD"
+    },
+    "GBPJPY_M5": {
+        "pair": "GBPJPY", "timeframe_str": "M5", "filename": "GBPJPY_M5.csv",
+        "mt5_timeframe": mt5.TIMEFRAME_M5, "pip_size": 0.01,
+        "backtest_mt5_point": 0.001, "backtest_mt5_trade_tick_value": 1.0,
+        "backtest_mt5_volume_min": 0.01, "backtest_mt5_volume_max": 100.0,
+        "backtest_mt5_volume_step": 0.01, "backtest_account_currency": "USD"
+    },
+    "USDJPY_M5": {
+        "pair": "USDJPY", "timeframe_str": "M5", "filename": "USDJPY_M5.csv",
+        "mt5_timeframe": mt5.TIMEFRAME_M5, "pip_size": 0.01,
+        "backtest_mt5_point": 0.001, "backtest_mt5_trade_tick_value": 1.0,
+        "backtest_mt5_volume_min": 0.01, "backtest_mt5_volume_max": 100.0,
+        "backtest_mt5_volume_step": 0.01, "backtest_account_currency": "USD"
+    },
+    # Add other pairs as needed
+}
+# List of M5 pair keys from HISTORICAL_DATA_SOURCES to be actively trained/traded (Project 2 Style)
+PRIMARY_MODEL_PAIRS_TIMEFRAMES = ["EURUSD_M5", "GBPUSD_M5", "AUDUSD_M5", "GBPJPY_M5", "USDJPY_M5"]
 
-def parse_pair_timeframe(filename):
-    # Example: EURUSD_M5.csv -> (EURUSD, M5)
-    match = re.match(r'([A-Z]+)_([A-Z0-9]+)\\.csv', filename)
-    if not match:
-        match = re.match(r'([A-Z]+)_([A-Z0-9]+)\.csv', filename)
-    if match:
-        return match.group(1), match.group(2)
-    return None, None
-
-DATA_FILES = glob.glob(os.path.join(DATA_DIR, '*.csv'))
-for file_path in DATA_FILES:
-    filename = os.path.basename(file_path)
-    pair, timeframe = parse_pair_timeframe(filename)
-    if not pair or not timeframe:
-        continue
-    key = f"{pair}_{timeframe}"
-    mt5_timeframe = getattr(mt5, f"TIMEFRAME_{timeframe}", None)
-    pip_size = 0.0001 if pair[-3:] != 'JPY' else 0.01
-    HISTORICAL_DATA_SOURCES[key] = {
-        "pair": pair,
-        "timeframe_str": timeframe,
-        "filename": filename,
-        "mt5_timeframe": mt5_timeframe,
-        "pip_size": pip_size
-    }
-    # Add backtest params for M5
-    if timeframe == 'M5':
-        HISTORICAL_DATA_SOURCES[key].update({
-            "backtest_mt5_point": 0.00001 if pair[-3:] != 'JPY' else 0.001,
-            "backtest_mt5_trade_tick_value": 1.0,
-            "backtest_mt5_volume_min": 0.01,
-            "backtest_mt5_volume_max": 100.0,
-            "backtest_mt5_volume_step": 0.01,
-            "backtest_account_currency": "USD"
-        })
-
-# Automatically set PRIMARY_MODEL_PAIRS_TIMEFRAMES to all *_M5 keys
-PRIMARY_MODEL_PAIRS_TIMEFRAMES = [k for k in HISTORICAL_DATA_SOURCES if k.endswith('_M5')]
 
 # --- Timeframe Constants (Project 1 Style) ---
 TIMEFRAME_H1_MT5 = mt5.TIMEFRAME_H1
@@ -191,7 +202,7 @@ ENSEMBLE_METHOD = 'VotingClassifier' # Currently only VotingClassifier supported
 # USE_SMOTE_DEFAULT = False # Default for training if not specified by CLI
 
 # --- Risk Management Parameters (Flexible - New) ---
-RISK_MANAGEMENT_MODE = "FIXED_LOT" # "FIXED_LOT" or "DYNAMIC_PERCENTAGE"
+RISK_MANAGEMENT_MODE = "DYNAMIC_PERCENTAGE" # "FIXED_LOT" or "DYNAMIC_PERCENTAGE"
 FIXED_LOT_SIZE = 0.01  # Used if RISK_MANAGEMENT_MODE is "FIXED_LOT", or as fallback if dynamic fails AND this is > 0
 
 RISK_PER_TRADE_PERCENT = 1.0  # For DYNAMIC_PERCENTAGE: 1.0 means 1% of account balance
