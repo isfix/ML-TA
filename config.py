@@ -253,5 +253,7 @@ PIP_SIZE = {
     "EURUSD": 0.0001,
     "GBPUSD": 0.0001,
     "USDJPY": 0.01,
+    "AUDUSD": 0.0001,
+    "GBPJPY": 0.01,
     # Add other commonly traded pairs if needed as defaults
 }
