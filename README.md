@@ -111,6 +111,27 @@ ML-TA/
 - `--clear-logs`: Clears all log files in `reports/logs/`.
 - `--clear-reports`: Clears all backtest reports in `reports/backtests/`.
 
+## Available XGBoost Models (2022–2025 Training)
+
+The following XGBoost (XGBClassifier) models are available and were trained using M5 timeframe data from January 2022 to May 2025. These models are used for both backtesting and live trading, and are stored in the `models/` directory:
+
+- **EURUSD_M5_XGBClassifier_tuned_pipeline.joblib**
+- **GBPUSD_M5_XGBClassifier_tuned_pipeline.joblib**
+- **AUDUSD_M5_XGBClassifier_tuned_pipeline.joblib**
+- **GBPJPY_M5_XGBClassifier_tuned_pipeline.joblib**
+- **USDJPY_M5_XGBClassifier_tuned_pipeline.joblib**
+
+Each model is accompanied by a corresponding feature names file (e.g., `EURUSD_M5_XGBClassifier_tuned_feature_names.json`).
+
+**Training Details:**
+- Training period: 2022-01-01 to 2025-05-10
+- Timeframe: M5 (5-minute bars)
+- Features: Automated feature engineering (including dynamic SNR, pivots, EMAs, ATR, volume, etc.)
+- Hyperparameter tuning: Optuna
+- Target: ML-based directional prediction with risk/reward and ATR-based labeling
+
+These models are ready for use in both backtesting and live trading modes. For more details, see the `models/` directory and the configuration in `config.py`.
+
 ## Disclaimer
 This software and its content are provided for research and educational purposes only. It is not intended as and does not constitute financial advice, investment advice, trading advice, or any other form of advice. You should not treat any of the project's content as such.
 

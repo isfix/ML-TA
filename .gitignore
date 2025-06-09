@@ -6,8 +6,6 @@ __pycache__/
 *.pyo
 *.log
 *.csv
-*.joblib
-*.json
 .env
 .DS_Store
 .idea/
