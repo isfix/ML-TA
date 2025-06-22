@@ -6,14 +6,39 @@ Based on Project 2's logging_utils.
 import logging
 import sys
 import os
+from logging.handlers import RotatingFileHandler
+
+class AggressiveRotatingFileHandler(RotatingFileHandler):
+    """
+    RotatingFileHandler that deletes all previous log files when rolling over past backup_count.
+    Only the newest log file is kept after rollover.
+    """
+    def doRollover(self):
+        super().doRollover()
+        # After normal rollover, delete all but the newest log file
+        log_dir = os.path.dirname(self.baseFilename)
+        log_base = os.path.basename(self.baseFilename)
+        # Find all rotated log files
+        rotated_logs = [f for f in os.listdir(log_dir) if f.startswith(log_base)]
+        rotated_logs_full = [os.path.join(log_dir, f) for f in rotated_logs]
+        # Sort by modification time, newest last
+        rotated_logs_full.sort(key=lambda x: os.path.getmtime(x))
+        # If more than 1 log file, delete all but the newest
+        if len(rotated_logs_full) > 1:
+            for old_log in rotated_logs_full[:-1]:
+                try:
+                    os.remove(old_log)
+                except Exception as e:
+                    sys.stderr.write(f"Error deleting old log file {old_log}: {e}\n")
 
 # This global list will be populated by setup_logger with active file handlers
 _active_file_handlers = []
 _configured_loggers = {} # Keep track of loggers already configured to avoid duplicate handlers
 
-def setup_logger(name: str, log_file: str, level_str: str = None, console_output: bool = True):
+def setup_logger(name: str, log_file: str, level_str: str = None, console_output: bool = True, max_bytes: int = 10*1024*1024, backup_count: int = 5):
     """
     Sets up a logger with specified file and console output.
+    Adds log rotation (default: 10MB per file, 5 backups).
     Avoids adding duplicate handlers to the same logger instance.
 
     Args:
@@ -22,6 +47,8 @@ def setup_logger(name: str, log_file: str, level_str: str = None, console_output
         level_str (str, optional): Logging level as a string (e.g., "INFO", "DEBUG").
                                    Defaults to what might be in config.LOG_LEVEL or INFO.
         console_output (bool): Whether to output logs to the console.
+        max_bytes (int): Maximum file size in bytes before rotation (default: 10MB).
+        backup_count (int): Number of backup files to keep (default: 5).
 
     Returns:
         logging.Logger: Configured logger instance.
@@ -65,12 +92,12 @@ def setup_logger(name: str, log_file: str, level_str: str = None, console_output
             log_file = os.path.join(os.getcwd(), log_file_basename)
             sys.stderr.write(f"Logging to fallback file: {log_file}\n")
 
-    # File handler
+    # File handler with aggressive rotation
     # Check if a file handler for this specific file already exists on this logger
     has_this_file_handler = any(isinstance(h, logging.FileHandler) and h.baseFilename == os.path.abspath(log_file) for h in logger.handlers)
     if not has_this_file_handler:
         try:
-            file_handler_instance = logging.FileHandler(log_file, mode='a') # Append mode
+            file_handler_instance = AggressiveRotatingFileHandler(log_file, mode='a', maxBytes=max_bytes, backupCount=backup_count)
             file_handler_instance.setFormatter(formatter)
             logger.addHandler(file_handler_instance)
             if file_handler_instance not in _active_file_handlers: # Avoid duplicates in global list

@@ -159,6 +159,7 @@ M5_PIVOT_RIGHT_STRENGTH = 3
 M5_PIVOT_LOOKBACK = 50
 M5_PIVOT_SUPPORT_COL = 'm5_pivot_support'
 M5_PIVOT_RESISTANCE_COL = 'm5_pivot_resistance'
+SNR_INTERACTION_THRESHOLD = 0.0005  # Adjust as needed for your symbol's pip size/volatility
 
 # M5 Exit EMA (for Backtester) - Added
 M5_EXIT_EMA_PERIOD = 12 # Example, adjust as needed

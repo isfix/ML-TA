@@ -324,8 +324,9 @@ def run_backtesting():
 
 def run_live_trading():
     app_logger.info("--- Starting Live Trading Mode ---")
-    live_logger = logging_utils.setup_logger('LiveTradingProcess', config.LOG_FILE_LIVE, level_str=config.LOG_LEVEL)
-    
+    # Only log to file, not to console
+    live_logger = logging_utils.setup_logger('LiveTradingProcess', config.LOG_FILE_LIVE, level_str=config.LOG_LEVEL, console_output=False)
+    print("Live Trading Running...")
     mt5_interface = MT5Interface(config, live_logger)
     if not mt5_interface.is_connected: 
         live_logger.error("Failed to connect to MT5. Live trading cannot start."); return
@@ -336,124 +337,125 @@ def run_live_trading():
     
     live_models_scalers_features = {} 
     live_signal_processors = {}      
+    last_h1_candle_time = None
+    snr_cache = {}
+    last_signal_time = {}
+    poll_interval_seconds = 1  # Fetch every second
 
     try:
         while True:
             now_utc = datetime.now(timezone.utc)
-            next_m5_boundary_minute = (now_utc.minute // 5 + 1) * 5
-            poll_interval_seconds = getattr(config, 'LIVE_TRADING_POLL_INTERVAL_SECONDS', 5)
-
-            if next_m5_boundary_minute >= 60:
-                next_m5_target_time = now_utc.replace(hour=(now_utc.hour + 1) % 24, minute=0, second=poll_interval_seconds, microsecond=0)
-                if now_utc.hour == 23: next_m5_target_time += timedelta(days=1)
-            else:
-                next_m5_target_time = now_utc.replace(minute=next_m5_boundary_minute, second=poll_interval_seconds, microsecond=0)
-            
-            sleep_duration = (next_m5_target_time - now_utc).total_seconds()
-            if sleep_duration <= 0: sleep_duration += 300 
-
-            live_logger.info(f"Current UTC: {now_utc.strftime('%Y-%m-%d %H:%M:%S')}. Waiting {sleep_duration:.0f}s for next M5 cycle.")
-            time.sleep(max(1.0, sleep_duration))
-            
-            live_logger.info(f"--- Live Trading Cycle Start: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} ---")
-
-            open_positions = mt5_interface.get_open_positions(magic_number=config.MT5_MAGIC_NUMBER)
-            if open_positions:
-                live_logger.info(f"Managing {len(open_positions)} open trade(s)...")
-
             for m5_pair_key in config.PRIMARY_MODEL_PAIRS_TIMEFRAMES:
                 pair_config_details = config.HISTORICAL_DATA_SOURCES.get(m5_pair_key)
                 if not pair_config_details: live_logger.warning(f"No config for {m5_pair_key}, skipping."); continue
-                
                 symbol = pair_config_details['pair']
                 live_logger.debug(f"Processing live for {symbol}...")
 
                 if m5_pair_key not in live_models_scalers_features:
                     model_type_suffix = getattr(config, 'MODEL_TYPE_FOR_TRADING', 'ensemble')
                     model_file_prefix = f"{symbol}_{pair_config_details['timeframe_str']}_{model_type_suffix}"
-                    
                     mm = ModelManager(config, live_logger)
                     pipeline, f_names = mm.load_model_pipeline(model_file_prefix)
-
                     if pipeline and f_names:
                         live_models_scalers_features[m5_pair_key] = (pipeline, f_names) 
                         live_signal_processors[m5_pair_key] = SignalProcessor(config, live_logger, pipeline, None, f_names)
                         live_logger.info(f"Model and SignalProcessor loaded for {symbol}.")
                     else:
                         live_logger.error(f"Failed to load model/pipeline for {symbol}. Skipping this pair for now."); continue
-                
                 loaded_pipeline, loaded_feature_names = live_models_scalers_features[m5_pair_key]
                 signal_processor = live_signal_processors[m5_pair_key]
 
+                # Fetch latest H1 and M5 data
                 df_h1_live = data_fetcher.fetch_live_candle_data(symbol, config.TIMEFRAME_H1_MT5, num_candles=config.LIVE_NUM_CANDLES_FETCH_H1)
                 df_m5_live = data_fetcher.fetch_live_candle_data(symbol, config.TIMEFRAME_M5_MT5, num_candles=config.LIVE_NUM_CANDLES_FETCH_M5)
-
                 if df_m5_live is None or df_m5_live.empty or \
                    ((df_h1_live is None or df_h1_live.empty) and config.H1_NUM_SNR_LEVELS > 0) : 
                     live_logger.warning(f"Insufficient live data for {symbol}. Skipping cycle."); continue
-                
+
+                # Update SNR only if new H1 candle
+                h1_last_candle_time = df_h1_live.index[-1] if not df_h1_live.empty else None
+                if m5_pair_key not in snr_cache or last_h1_candle_time != h1_last_candle_time:
+                    snr_cache[m5_pair_key] = market_analyzer.calculate_all_dynamic_h1_snr(df_h1_live)
+                    last_h1_candle_time = h1_last_candle_time
+                    live_logger.info(f"SNR updated for {symbol} at {h1_last_candle_time}")
+
                 feature_builder_live = FeatureBuilder(config, live_logger, market_analyzer)
                 latest_features_df = feature_builder_live.build_features_for_live(df_m5_live, df_h1_live)
-
                 if latest_features_df is None or latest_features_df.empty: 
                     live_logger.warning(f"Feature generation failed for latest live data {symbol}."); continue
-                
                 latest_candle_features_series = latest_features_df.iloc[-1] 
 
+                open_positions = mt5_interface.get_open_positions(magic_number=config.MT5_MAGIC_NUMBER)
                 symbol_positions = [p for p in open_positions if p.symbol == symbol]
-                if not symbol_positions: 
-                    live_logger.info(f"No open trade for {symbol}. Checking for new signals...")
-                    candidate_direction = signal_processor.check_candidate_entry_conditions(latest_candle_features_series)
-                    if candidate_direction:
-                        ml_confirmed_signal = signal_processor.generate_ml_confirmed_signal(latest_candle_features_series, candidate_direction)
-                        if ml_confirmed_signal:
-                            signal_type = ml_confirmed_signal['signal'] 
-                            live_logger.info(f"ML Confirmed {signal_type} signal for {symbol} at {ml_confirmed_signal['timestamp']}")
-                            
-                            account_info = mt5_interface.get_account_info()
-                            mt5_sym_info = mt5_interface.get_symbol_info(symbol)
-                            if not account_info or not mt5_sym_info:
-                                live_logger.error(f"Failed to get account/symbol info for {symbol}. Skipping trade."); continue
-
-                            entry_price_ref = latest_candle_features_series[config.CLOSE_COL] 
-                            atr_val = latest_candle_features_series.get(config.M5_ATR_COL_BASE) 
-                            if pd.isna(atr_val) or atr_val <= 0:
-                                live_logger.warning(f"Invalid ATR for {symbol} ({atr_val}). Cannot calculate SL/TP."); continue
-
-                            sl_price = risk_manager.calculate_stop_loss(entry_price_ref, atr_val, signal_type.lower(), symbol)
-                            tp_price = risk_manager.calculate_take_profit(entry_price_ref, sl_price, signal_type.lower(), symbol)
-                            
-                            trade_volume = risk_manager.get_trade_volume(
-                                account_balance=account_info.balance,
-                                entry_price=entry_price_ref, 
-                                sl_price=sl_price,
-                                symbol=symbol,
-                                symbol_info_mt5=mt5_sym_info 
-                            )
-
-                            if trade_volume is None or trade_volume <= 0:
-                                live_logger.error(f"Invalid trade volume ({trade_volume}) for {symbol}. Skipping trade."); continue
-                            
-                            order_type_mt5_val = mt5.ORDER_TYPE_BUY if signal_type == 'BUY' else mt5.ORDER_TYPE_SELL
-                            trade_comment = f"LiveAI_{signal_type}_{symbol}_{int(time.time())}"
-                            
-                            live_logger.info(f"Attempting to place {signal_type} order for {symbol}: Vol={trade_volume:.2f}, SL={sl_price:.5f}, TP={tp_price if tp_price else 'None'}")
-                            order_result = mt5_interface.place_market_order(
-                                symbol=symbol, order_type_mt5=order_type_mt5_val, volume=trade_volume,
-                                sl_price=sl_price, tp_price=tp_price,
-                                magic_number=config.MT5_MAGIC_NUMBER, comment=trade_comment
-                            )
-                            if order_result and order_result.retcode == mt5.TRADE_RETCODE_DONE:
-                                live_logger.info(f"Trade placed successfully for {symbol}: Deal {order_result.deal}, Order {order_result.order}")
-                            else:
-                                live_logger.error(f"Failed to place trade for {symbol}. Result: {order_result.comment if order_result else 'N/A'}")
-                else:
-                    live_logger.info(f"Existing trade found for {symbol}. Monitoring, no new entry check.")
-            
-            if config.DATA_SOURCE == "mt5": 
-                data_fetcher.shutdown_mt5() 
-            live_logger.info(f"--- Live Trading Cycle End ---")
-
+                # Check for SNR interaction (implement your SNR interaction logic here)
+                snr_levels = snr_cache.get(m5_pair_key)
+                price = latest_candle_features_series[config.CLOSE_COL]
+                interacted = False
+                if snr_levels is not None:
+                    # Support dict, Series, or ndarray
+                    if hasattr(snr_levels, 'values') and callable(getattr(snr_levels, 'values', None)):
+                        snr_iter = snr_levels.values()
+                    elif hasattr(snr_levels, 'values'):
+                        snr_iter = snr_levels.values
+                    else:
+                        snr_iter = snr_levels
+                    for snr in snr_iter:
+                        # If snr is array-like, check all elements
+                        if isinstance(snr, (np.ndarray, pd.Series, list)):
+                            if np.any(np.abs(price - np.array(snr)) < config.SNR_INTERACTION_THRESHOLD):
+                                interacted = True
+                                break
+                        else:
+                            if abs(price - snr) < config.SNR_INTERACTION_THRESHOLD:
+                                interacted = True
+                                break
+                if interacted:
+                    # Only analyze once per interaction (per symbol)
+                    last_sig = last_signal_time.get(symbol)
+                    if not last_sig or (now_utc - last_sig).total_seconds() > poll_interval_seconds:
+                        if not symbol_positions: 
+                            live_logger.info(f"No open trade for {symbol}. Checking for new signals...")
+                            candidate_direction = signal_processor.check_candidate_entry_conditions(latest_candle_features_series)
+                            if candidate_direction:
+                                ml_confirmed_signal = signal_processor.generate_ml_confirmed_signal(latest_candle_features_series, candidate_direction)
+                                if ml_confirmed_signal:
+                                    signal_type = ml_confirmed_signal['signal'] 
+                                    live_logger.info(f"ML Confirmed {signal_type} signal for {symbol} at {ml_confirmed_signal['timestamp']}")
+                                    account_info = mt5_interface.get_account_info()
+                                    mt5_sym_info = mt5_interface.get_symbol_info(symbol)
+                                    if not account_info or not mt5_sym_info:
+                                        live_logger.error(f"Failed to get account/symbol info for {symbol}. Skipping trade."); continue
+                                    entry_price_ref = latest_candle_features_series[config.CLOSE_COL] 
+                                    atr_val = latest_candle_features_series.get(config.M5_ATR_COL_BASE) 
+                                    if pd.isna(atr_val) or atr_val <= 0:
+                                        live_logger.warning(f"Invalid ATR for {symbol} ({atr_val}). Cannot calculate SL/TP."); continue
+                                    sl_price = risk_manager.calculate_stop_loss(entry_price_ref, atr_val, signal_type.lower(), symbol)
+                                    tp_price = risk_manager.calculate_take_profit(entry_price_ref, sl_price, signal_type.lower(), symbol)
+                                    trade_volume = risk_manager.get_trade_volume(
+                                        account_balance=account_info.balance,
+                                        entry_price=entry_price_ref, 
+                                        sl_price=sl_price,
+                                        symbol=symbol,
+                                        symbol_info_mt5=mt5_sym_info 
+                                    )
+                                    if trade_volume is None or trade_volume <= 0:
+                                        live_logger.error(f"Invalid trade volume ({trade_volume}) for {symbol}. Skipping trade."); continue
+                                    order_type_mt5_val = mt5.ORDER_TYPE_BUY if signal_type == 'BUY' else mt5.ORDER_TYPE_SELL
+                                    trade_comment = f"LiveAI_{signal_type}_{symbol}_{int(time.time())}"
+                                    live_logger.info(f"Attempting to place {signal_type} order for {symbol}: Vol={trade_volume:.2f}, SL={sl_price:.5f}, TP={tp_price if tp_price else 'None'}")
+                                    order_result = mt5_interface.place_market_order(
+                                        symbol=symbol, order_type_mt5=order_type_mt5_val, volume=trade_volume,
+                                        sl_price=sl_price, tp_price=tp_price,
+                                        magic_number=config.MT5_MAGIC_NUMBER, comment=trade_comment
+                                    )
+                                    if order_result and order_result.retcode == mt5.TRADE_RETCODE_DONE:
+                                        live_logger.info(f"Trade placed successfully for {symbol}: Deal {order_result.deal}, Order {order_result.order}")
+                                    else:
+                                        live_logger.error(f"Failed to place trade for {symbol}. Result: {order_result.comment if order_result else 'N/A'}")
+                                    last_signal_time[symbol] = now_utc
+                        else:
+                            live_logger.info(f"Existing trade found for {symbol}. Monitoring, no new entry check.")
+            time.sleep(poll_interval_seconds)
     except KeyboardInterrupt:
         live_logger.info("Live trading loop interrupted by user (Ctrl+C).")
     except Exception as e:
