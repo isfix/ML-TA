@@ -14,8 +14,10 @@ class AggressiveRotatingFileHandler(RotatingFileHandler):
     Only the newest log file is kept after rollover.
     """
     def doRollover(self):
+        if self.stream:
+            self.stream.close()
+            self.stream = None
         super().doRollover()
-        # After normal rollover, delete all but the newest log file
         log_dir = os.path.dirname(self.baseFilename)
         log_base = os.path.basename(self.baseFilename)
         # Find all rotated log files
@@ -30,6 +32,7 @@ class AggressiveRotatingFileHandler(RotatingFileHandler):
                     os.remove(old_log)
                 except Exception as e:
                     sys.stderr.write(f"Error deleting old log file {old_log}: {e}\n")
+        self.stream = self._open()
 
 # This global list will be populated by setup_logger with active file handlers
 _active_file_handlers = []
@@ -53,6 +56,18 @@ def setup_logger(name: str, log_file: str, level_str: str = None, console_output
     Returns:
         logging.Logger: Configured logger instance.
     """
+    try:
+        import config
+        if hasattr(config, "LOGGING") and config.LOGGING.lower() == "deactivate":
+            # Return a dummy logger that does nothing
+            class DummyLogger:
+                def __getattr__(self, name):
+                    def dummy(*args, **kwargs): return None
+                    return dummy
+            return DummyLogger()
+    except Exception:
+        pass
+
     # Determine log level
     if level_str is None:
         try:

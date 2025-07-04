@@ -58,6 +58,9 @@ LOG_FILE_BACKTEST = os.path.join(LOG_DIR, "trading_bot_backtest.log")
 LOG_FILE_LIVE = os.path.join(LOG_DIR, "trading_bot_live.log")
 # Note: Project 1 had LOG_FILE_NAME = "trading_bot.log". Project 2 has specific files. We'll use P2 style.
 
+# --- Logging Control ---
+LOGGING = "deactivate"  # Set to "activate" or "deactivate" to control logging globally
+
 # --- Data Ingestion & Source Configuration ---
 # DATA_SOURCE: "mt5" or "file" (Project 1 Style)
 DATA_SOURCE = "file" # For training/backtesting. Live will always use "mt5".
